@@ -1,0 +1,127 @@
+# GoLive v2.0 Messages
+# All player-facing messages with MiniMessage support
+
+# Plugin prefix
+prefix: "<gradient:#8b5cf6:#4c1d95>[GoLive]</gradient>"
+
+# General Messages
+general:
+    no-permission: "<red>You don't have permission to use this command!</red>"
+    player-only: "<red>This command can only be used by players!</red>"
+    invalid-arguments: "<red>Invalid arguments! Use <#a855f7>/golive help</#a855f7> for help.</red>"
+    plugin-reloaded: "<#8b5cf6>GoLive configuration has been reloaded!</#8b5cf6>"
+    cooldown-active: "<red>You must wait <#a855f7>%time%</#a855f7> seconds before going live again!</red>"
+
+# Live Status Messages
+live:
+    # Message when going live
+    announcement: "<gradient:#8b5cf6:#4c1d95>%player%</gradient> <#8b5cf6>is now live at</#8b5cf6> <click:open_url:'%streamlink%'><hover:show_text:'<#8b5cf6>Click to open stream!</#8b5cf6>'><underlined>%streamlink%</underlined></hover></click><#8b5cf6>!</#8b5cf6>"
+
+    # Hover text for clickable messages
+    hover-text: "<#8b5cf6>Click to open the stream!</#8b5cf6>"
+
+    # Confirmation message to the player
+    confirmation: "<#8b5cf6>You are now live! Use <#a855f7>/offline</#a855f7> when you stop streaming.</#8b5cf6>"
+
+    # Title text
+    title: "<gradient:#8b5cf6:#4c1d95>LIVE</gradient>"
+
+    # Subtitle text
+    subtitle: "<gray>%streamlink%</gray>"
+
+# Offline Messages
+offline:
+    # Message when going offline
+    announcement: "<#4c1d95>%player%</#4c1d95> <gray>is no longer live.</gray>"
+
+    # Confirmation message to the player
+    confirmation: "<#4c1d95>You are no longer live.</#4c1d95>"
+
+# Stream Link Messages
+stream-link:
+    # When no link is set
+    not-set: "<red>You haven't set a stream link! Use <#a855f7>/live setlink <link></#a855f7> to set one.</red>"
+
+    # When link is set successfully
+    set: "<#8b5cf6>Your stream link has been set to: <#a855f7>%link%</#a855f7></#8b5cf6>"
+
+    # When link is invalid
+    invalid: "<red>Invalid stream link! Make sure it starts with <#a855f7>https://</#a855f7> and is from an allowed platform.</red>"
+
+    # Current link display
+    current: "<#8b5cf6>Your current stream link: <#a855f7>%link%</#a855f7></#8b5cf6>"
+
+    # Instructions for setting link
+    set-instructions: "<#a855f7>To set your stream link, use: <#8b5cf6>/live setlink <your-stream-url></#8b5cf6></#a855f7>"
+
+# GUI Messages
+gui:
+    # Title of the GUI
+    title: "<gradient:#8b5cf6:#4c1d95>GoLive</gradient> <gray>Menu</gray>"
+
+    # Button names
+    buttons:
+        live: "<#8b5cf6>Go Live</#8b5cf6>"
+        offline: "<#4c1d95>Go Offline</#4c1d95>"
+        edit-link: "<#7c3aed>Edit Stream Link</#7c3aed>"
+        close: "<#4c1d95>Close</#4c1d95>"
+
+    # Button lore
+    lore:
+        live:
+            - "<gray>Click to announce you're live!</gray>"
+            - "<#a855f7>Requires a stream link</#a855f7>"
+        offline:
+            - "<gray>Click to go offline</gray>"
+        edit-link:
+            - "<gray>Click to set your stream link</gray>"
+        close:
+            - "<gray>Click to close this menu</gray>"
+
+# Command Help Messages
+help:
+    header: "<gradient:#8b5cf6:#4c1d95>GoLive v2.0</gradient> <gray>Commands</gray>"
+    commands:
+        - "<#a855f7>/golive</#a855f7> <gray>- Show plugin information</gray>"
+        - "<#a855f7>/golive reload</#a855f7> <gray>- Reload configuration</gray>"
+        - "<#a855f7>/live</#a855f7> <gray>- Go live (opens GUI if enabled)</gray>"
+        - "<#a855f7>/live setlink <link></#a855f7> <gray>- Set your stream link</gray>"
+        - "<#a855f7>/live link</#a855f7> <gray>- View your current stream link</gray>"
+        - "<#a855f7>/offline</#a855f7> <gray>- Go offline</gray>"
+    footer: "<gray>Use <#a855f7>/golive help</#a855f7> to see this help again.</gray>"
+
+# Admin Messages
+admin:
+    # Plugin information
+    info:
+        - "<gradient:#8b5cf6:#4c1d95>GoLive v2.0</gradient>"
+        - "<gray>Author:</gray> <#a855f7>Trygve</#a855f7>"
+        - "<gray>Version:</gray> <#a855f7>%version%</#a855f7>"
+        - "<gray>Minecraft:</gray> <#a855f7>1.21+</#a855f7>"
+        - ""
+        - "<gray>Database:</gray> <#a855f7>%database-type%</#a855f7>"
+        - "<gray>Vault:</gray> <#a855f7>%vault-status%</#a855f7>"
+        - "<gray>PlaceholderAPI:</gray> <#a855f7>%placeholderapi-status%</#a855f7>"
+
+    # Update notification
+    update-available: "<red>GoLive update available!</red> <gray>Current:</gray> <#a855f7>%current-version%</#a855f7> <gray>Latest:</gray> <#a855f7>%latest-version%</#a855f7> <gray>Download:</gray> <click:open_url:'%download-url%'><hover:show_text:'<#8b5cf6>Click to download!</#8b5cf6>'><underlined><#a855f7>%download-url%</#a855f7></underlined></hover></click>"
+
+# Error Messages
+errors:
+    database-connection: "<red>Failed to connect to database! Check your configuration.</red>"
+    database-error: "<red>Database error occurred. Please contact an administrator.</red>"
+    vault-not-found: "<#a855f7>Vault not found. Using command fallback for permissions.</#a855f7>"
+    placeholderapi-not-found: "<#a855f7>PlaceholderAPI not found. Placeholders will not work.</#a855f7>"
+    invalid-config: "<red>Invalid configuration detected. Please check your config files.</red>"
+
+# PlaceholderAPI Messages
+placeholders:
+    status:
+        live: "<#8b5cf6>Live</#8b5cf6>"
+        offline: "<#4c1d95>Offline</#4c1d95>"
+
+    time-since:
+        just-now: "<#8b5cf6>Just now</#8b5cf6>"
+        minutes-ago: "<#a855f7>%minutes% minutes ago</#a855f7>"
+        hours-ago: "<#a855f7>%hours% hours ago</#a855f7>"
+        days-ago: "<#a855f7>%days% days ago</#a855f7>"

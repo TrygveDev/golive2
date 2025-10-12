@@ -1,0 +1,168 @@
+# GoLive v2.0 Configuration
+# Modern livestream announcement plugin for Minecraft 1.21+
+
+# Database Configuration
+database:
+    # Database type: SQLITE or MYSQL
+    # SQLITE: File-based, no setup required (default)
+    # MYSQL: For multi-server networks
+    type: SQLITE
+
+    # MySQL settings (only used if type is MYSQL)
+    mysql:
+        host: localhost
+        port: 3306
+        database: golive
+        username: root
+        password: password
+        ssl: false
+        pool-size: 10
+
+# Vault Integration
+vault:
+    # Enable Vault integration for permissions
+    enabled: true
+
+    # Permission groups for live/offline status
+    groups:
+        live: content-creator-live
+        standard: content-creator
+
+    # Fallback commands if Vault is not available
+    fallback-commands:
+        live: "lp user %player% parent set content-creator-live"
+        standard: "lp user %player% parent set content-creator"
+
+# GUI Configuration
+gui:
+    # Enable GUI for live/offline commands
+    enabled: true
+
+    # GUI size (9, 18, 27, 36, 45, 54)
+    size: 27
+
+    # Title of the GUI
+    title: "<gradient:#8b5cf6:#4c1d95>GoLive</gradient> <gray>Menu</gray>"
+
+    # Button materials and customization
+    buttons:
+        live:
+            slot: 11
+            material: PURPLE_WOOL
+            custom-model-data: 1001
+            glow: true
+            name: "<#8b5cf6>Go Live</#8b5cf6>"
+            lore:
+                - "<gray>Click to announce you're live!</gray>"
+                - "<#a855f7>Requires a stream link</#a855f7>"
+
+        offline:
+            slot: 13
+            material: BLACK_WOOL
+            custom-model-data: 1002
+            glow: false
+            name: "<#4c1d95>Go Offline</#4c1d95>"
+            lore:
+                - "<gray>Click to go offline</gray>"
+
+        edit-link:
+            slot: 15
+            material: WRITABLE_BOOK
+            custom-model-data: 1003
+            glow: false
+            name: "<#7c3aed>Edit Stream Link</#7c3aed>"
+            lore:
+                - "<gray>Click to set your stream link</gray>"
+
+        close:
+            slot: 22
+            material: BARRIER
+            custom-model-data: 1004
+            glow: false
+            name: "<#4c1d95>Close</#4c1d95>"
+            lore:
+                - "<gray>Click to close this menu</gray>"
+
+    # Background/filler items
+    background:
+        enabled: true
+        material: PURPLE_STAINED_GLASS_PANE
+        custom-model-data: 1000
+        name: " "
+
+# Announcement Settings
+announcements:
+    # Enable title announcements
+    title:
+        enabled: true
+        fade-in: 10
+        stay: 50
+        fade-out: 10
+
+    # Enable sound effects
+    sound:
+        enabled: true
+        type: entity.player.levelup
+        volume: 1.0
+        pitch: 1.0
+
+    # Enable clickable messages with hover
+    clickable-messages: true
+
+    # Auto-removal of live status
+    auto-removal:
+        enabled: true
+        # Time in seconds (default: 12 hours)
+        delay: 43200
+
+# Stream Link Validation
+stream-validation:
+    # Require HTTPS
+    require-https: true
+
+    # Allowed domains (empty = allow all)
+    allowed-domains:
+        - twitch.tv
+        - youtube.com
+        - kick.com
+        - tiktok.com
+        - facebook.com
+        - instagram.com
+
+# Permission Nodes
+permissions:
+    # Admin permissions
+    admin: golive.admin
+
+    # Basic live permissions
+    live: golive.live
+
+    # Offline permissions
+    offline: golive.offline
+
+    # Bypass cooldown
+    bypass-cooldown: golive.bypass.cooldown
+
+    # Bypass link validation
+    bypass-validation: golive.bypass.validation
+
+# Cooldown Settings
+cooldown:
+    # Enable cooldown between live announcements
+    enabled: true
+    # Cooldown in seconds
+    duration: 300
+
+# Metrics
+metrics:
+    # bStats metrics
+    enabled: true
+
+# Update Checker
+update-checker:
+    # Enable automatic update checking
+    enabled: true
+    # Check interval in hours
+    interval: 24
+    # Notify admins about updates
+    notify-admins: true

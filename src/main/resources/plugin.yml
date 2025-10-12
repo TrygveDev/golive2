@@ -1,0 +1,59 @@
+name: GoLive
+version: "2.0.0"
+main: dev.trygve.golive.GoLive
+api-version: "1.21"
+authors: [Trygve]
+description: Modern livestream announcement plugin for Minecraft 1.21+
+website: https://github.com/trygve/golive
+depend: []
+softdepend: [Vault, PlaceholderAPI]
+
+commands:
+    golive:
+        description: Main GoLive command for admin functions
+        usage: /golive [reload|info|update|help]
+        permission: golive.admin
+        permission-message: "You don't have permission to use this command!"
+        aliases: [gl]
+
+    live:
+        description: Go live and announce your stream
+        usage: /live [setlink|link|help]
+        permission: golive.live
+        permission-message: "You don't have permission to use this command!"
+        aliases: [stream, broadcast]
+
+    offline:
+        description: Go offline and stop streaming
+        usage: /offline [help]
+        permission: golive.offline
+        permission-message: "You don't have permission to use this command!"
+        aliases: [stop, end]
+
+permissions:
+    golive.admin:
+        description: Access to admin commands and functions
+        default: op
+        children:
+            golive.live: true
+            golive.offline: true
+            golive.bypass.cooldown: true
+            golive.bypass.validation: true
+
+    golive.live:
+        description: Permission to go live and announce streams
+        default: true
+        children:
+            golive.offline: true
+
+    golive.offline:
+        description: Permission to go offline
+        default: true
+
+    golive.bypass.cooldown:
+        description: Bypass cooldown between live announcements
+        default: op
+
+    golive.bypass.validation:
+        description: Bypass stream link validation
+        default: op
