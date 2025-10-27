@@ -113,57 +113,6 @@
         </dependency>
     </dependencies>
 
-    <profiles>
-        <!-- Profile for Spigot build with minimal dependencies -->
-        <profile>
-            <id>spigot</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-shade-plugin</artifactId>
-                        <version>3.5.1</version>
-                        <executions>
-                            <execution>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>shade</goal>
-                                </goals>
-                                <configuration>
-                                    <finalName>golive-${project.version}-spigot</finalName>
-                                    <createDependencyReducedPom>false</createDependencyReducedPom>
-                                    <artifactSet>
-                                        <excludes>
-                                            <!-- Only exclude MySQL connector for Spigot build -->
-                                            <exclude>com.mysql:mysql-connector-j</exclude>
-                                        </excludes>
-                                    </artifactSet>
-                                    <relocations>
-                                        <!-- Only relocate bStats for Spigot build -->
-                                        <relocation>
-                                            <pattern>org.bstats</pattern>
-                                            <shadedPattern>dev.trygve.golive.libs.bstats</shadedPattern>
-                                        </relocation>
-                                    </relocations>
-                                    <filters>
-                                        <filter>
-                                            <artifact>*:*</artifact>
-                                            <excludes>
-                                                <exclude>META-INF/*.SF</exclude>
-                                                <exclude>META-INF/*.DSA</exclude>
-                                                <exclude>META-INF/*.RSA</exclude>
-                                            </excludes>
-                                        </filter>
-                                    </filters>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
-
     <build>
         <plugins>
             <!-- Maven Compiler Plugin -->
@@ -183,9 +132,7 @@
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.5.1</version>
                 <executions>
-                    <!-- Full build with all dependencies -->
                     <execution>
-                        <id>full-build</id>
                         <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
