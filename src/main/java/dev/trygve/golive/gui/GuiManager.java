@@ -356,6 +356,13 @@ public class GuiManager {
             return;
         }
         
+        // Check if player is actually live
+        if (!liveStatusManager.isPlayerLive(player.getUniqueId())) {
+            messageManager.sendMessage(player, "offline.not-live");
+            player.closeInventory();
+            return;
+        }
+        
         // Set player offline
         liveStatusManager.setPlayerLiveStatus(player.getUniqueId(), false, null);
         player.closeInventory();

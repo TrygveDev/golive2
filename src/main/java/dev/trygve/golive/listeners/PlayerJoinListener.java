@@ -55,8 +55,8 @@ public class PlayerJoinListener implements Listener {
             createPlayerInDatabase(player);
         }
         
-        // Restore live status if player was live before
-        restoreLiveStatus(player);
+        // Note: Players must manually run /live to announce their stream
+        // We don't automatically restore live status on join
     }
     
     /**
@@ -100,28 +100,6 @@ public class PlayerJoinListener implements Listener {
             plugin.getDatabase().playerExists(player.getUniqueId()).thenAccept(exists -> {
                 if (!exists) {
                     plugin.getDatabase().createPlayer(player.getUniqueId(), player.getName());
-                }
-            });
-        });
-    }
-    
-    /**
-     * Restore live status if player was live before
-     * 
-     * @param player The player
-     */
-    private void restoreLiveStatus(@NotNull Player player) {
-        CompletableFuture.runAsync(() -> {
-            plugin.getDatabase().isLive(player.getUniqueId()).thenAccept(isLive -> {
-                if (isLive) {
-                    plugin.getDatabase().getStreamLink(player.getUniqueId()).thenAccept(streamLink -> {
-                        if (streamLink != null) {
-                            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                                // Restore live status in memory
-                                liveStatusManager.setPlayerLiveStatus(player.getUniqueId(), true, streamLink);
-                            });
-                        }
-                    });
                 }
             });
         });

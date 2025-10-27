@@ -20,18 +20,100 @@ database:
 
 # Vault Integration
 vault:
-    # Enable Vault integration for permissions
+    # Enable Vault integration for permissions/prefix
     enabled: true
 
-    # Permission groups for live/offline status
+    # Mode: "prefix" or "group"
+    # prefix: Adds a prefix/suffix to the player (recommended - preserves permissions)
+    # group: Changes the player's group (old method - may affect permissions)
+    mode: prefix
+
+    # Prefix/Suffix settings (used when mode is "prefix")
+    prefix:
+        # The prefix to add when live
+        # NOTE: Most permission plugins don't support MiniMessage formatting in prefix yet
+        # Use simple Minecraft color codes instead: &c = red, &6 = gold, &a = green, etc.
+        live: "&d&l🔴 LIVE &r"
+
+        # Optional: Priority for the prefix (higher = more important)
+        priority: 100
+
+    # Group settings (used when mode is "group")
     groups:
         live: content-creator-live
         standard: content-creator
 
-    # Fallback commands if Vault is not available
-    fallback-commands:
-        live: "lp user %player% parent set content-creator-live"
-        standard: "lp user %player% parent set content-creator"
+    # Commands to execute as fallback if Vault Chat API is not available
+    # The plugin will automatically use Vault Chat API first (works with all Vault-compatible plugins)
+    # These commands are only used if Chat API fails
+    # Available placeholders: %player%, %prefix%, %priority%
+    commands:
+        # === PREFIX MODE COMMANDS ===
+        # Command to add prefix when going live (LuckPerms meta approach - preserves existing prefix)
+        live: "lp user %player% meta setprefix %priority% %prefix%"
+        # Command to remove prefix when going offline (removes only the live prefix)
+        offline: "lp user %player% meta removeprefix %priority%"
+
+        # === GROUP MODE COMMANDS ===
+        # Uncomment and modify if using group mode:
+        # live: "lp user %player% parent set content-creator-live"
+        # offline: "lp user %player% parent set content-creator"
+
+    # === COMMAND TEMPLATES FOR OTHER PERMISSION PLUGINS ===
+    # Uncomment the section for your permission plugin and update the commands above
+
+    # LuckPerms (default - already configured above)
+    # Prefix mode (RECOMMENDED - preserves existing prefix):
+    # live: "lp user %player% meta setprefix %priority% %prefix%"
+    # offline: "lp user %player% meta removeprefix %priority%"
+    #
+    # Alternative prefix mode (replaces entire prefix):
+    # live: "lp user %player% meta setprefix %priority% %prefix%"
+    # offline: "lp user %player% meta setprefix %priority%"
+    #
+    # Group mode:
+    # live: "lp user %player% parent set content-creator-live"
+    # offline: "lp user %player% parent set content-creator"
+
+    # PermissionsEx (PEX)
+    # Prefix mode:
+    # live: "pex user %player% prefix set %prefix%"
+    # offline: "pex user %player% prefix set"
+    # Group mode:
+    # live: "pex user %player% group set content-creator-live"
+    # offline: "pex user %player% group set content-creator"
+
+    # GroupManager
+    # Prefix mode:
+    # live: "manuaddp %player% prefix.%prefix%"
+    # offline: "manudelp %player% prefix.*"
+    # Group mode:
+    # live: "mangcheckp %player% content-creator-live"
+    # offline: "mangcheckp %player% content-creator"
+
+    # PowerfulPerms
+    # Prefix mode:
+    # live: "pp user %player% setprefix %prefix%"
+    # offline: "pp user %player% setprefix"
+    # Group mode:
+    # live: "pp user %player% addgroup content-creator-live"
+    # offline: "pp user %player% setgroup content-creator"
+
+    # UltraPermissions
+    # Prefix mode:
+    # live: "upc setprefix %player% %prefix%"
+    # offline: "upc removeprefix %player%"
+    # Group mode:
+    # live: "upc addgroup %player% content-creator-live"
+    # offline: "upc setgroup %player% content-creator"
+
+    # bPermissions
+    # Prefix mode:
+    # live: "permissions player %player% setprefix %prefix%"
+    # offline: "permissions player %player% removeprefix"
+    # Group mode:
+    # live: "permissions player %player% setgroup content-creator-live"
+    # offline: "permissions player %player% setgroup content-creator"
 
 # GUI Configuration
 gui:
@@ -48,9 +130,9 @@ gui:
     buttons:
         live:
             slot: 11
-            material: PURPLE_WOOL
+            material: PURPLE_CONCRETE
             custom-model-data: 1001
-            glow: true
+            glow: false
             name: "<#8b5cf6>Go Live</#8b5cf6>"
             lore:
                 - "<gray>Click to announce you're live!</gray>"
@@ -58,7 +140,7 @@ gui:
 
         offline:
             slot: 13
-            material: BLACK_WOOL
+            material: BLACK_CONCRETE
             custom-model-data: 1002
             glow: false
             name: "<#4c1d95>Go Offline</#4c1d95>"
@@ -166,3 +248,8 @@ update-checker:
     interval: 24
     # Notify admins about updates
     notify-admins: true
+
+# Debug Settings
+debug:
+    # Enable debug logging (shows more detailed startup/shutdown messages)
+    enabled: false

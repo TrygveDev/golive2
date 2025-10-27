@@ -1,6 +1,7 @@
 package dev.trygve.golive.hooks;
 
 import dev.trygve.golive.GoLive;
+import net.milkbowl.vault.chat.Chat;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -11,19 +12,24 @@ import org.jetbrains.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Vault integration for permissions
+ * Vault integration for permissions and chat (prefix/suffix)
  */
 public class VaultHook {
     
     private final GoLive plugin;
     private Permission permission;
+    private Chat chat;
     private boolean vaultAvailable = false;
+    private boolean chatAvailable = false;
     
     // Configuration values
-    private final String liveGroup;
-    private final String standardGroup;
-    private final String liveCommand;
-    private final String standardCommand;
+    private String mode;
+    private String livePrefix;
+    private int prefixPriority;
+    private String liveGroup;
+    private String standardGroup;
+    private String liveCommand;
+    private String offlineCommand;
     
     /**
      * Create a new VaultHook
@@ -32,12 +38,27 @@ public class VaultHook {
      */
     public VaultHook(@NotNull GoLive plugin) {
         this.plugin = plugin;
+        loadConfiguration();
+    }
+    
+    /**
+     * Load configuration values
+     */
+    private void loadConfiguration() {
+        // Load mode
+        this.mode = plugin.getConfig().getString("vault.mode", "prefix");
         
-        // Load configuration
+        // Load prefix settings
+        this.livePrefix = plugin.getConfig().getString("vault.prefix.live", "<gradient:#ff0080:#ff8c00>🔴 LIVE</gradient> ");
+        this.prefixPriority = plugin.getConfig().getInt("vault.prefix.priority", 100);
+        
+        // Load group settings
         this.liveGroup = plugin.getConfig().getString("vault.groups.live", "content-creator-live");
         this.standardGroup = plugin.getConfig().getString("vault.groups.standard", "content-creator");
-        this.liveCommand = plugin.getConfig().getString("vault.fallback-commands.live", "lp user %player% parent set content-creator-live");
-        this.standardCommand = plugin.getConfig().getString("vault.fallback-commands.standard", "lp user %player% parent set content-creator");
+        
+        // Load command settings
+        this.liveCommand = plugin.getConfig().getString("vault.commands.live", "lp user %player% meta setprefix %priority% %prefix%");
+        this.offlineCommand = plugin.getConfig().getString("vault.commands.offline", "lp user %player% meta removeprefix %priority%");
     }
     
     /**
@@ -58,20 +79,40 @@ public class VaultHook {
                 return false;
             }
             
-            RegisteredServiceProvider<Permission> rsp = Bukkit.getServicesManager().getRegistration(Permission.class);
-            if (rsp == null) {
-                plugin.getLogger().warning("No permission provider found! Using command fallback for permissions.");
+            // Setup Permission provider
+            RegisteredServiceProvider<Permission> permRsp = Bukkit.getServicesManager().getRegistration(Permission.class);
+            if (permRsp == null) {
+                plugin.getLogger().warning("No permission provider found! Using command fallback.");
                 return false;
             }
             
-            permission = rsp.getProvider();
+            permission = permRsp.getProvider();
             if (permission == null) {
-                plugin.getLogger().warning("Permission provider is null! Using command fallback for permissions.");
+                plugin.getLogger().warning("Permission provider is null! Using command fallback.");
                 return false;
             }
             
             vaultAvailable = true;
-            plugin.getLogger().info("Vault integration enabled! Using " + permission.getName() + " for permissions.");
+            if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                plugin.getLogger().info("Vault Permission integration enabled! Provider: " + permission.getName());
+            }
+            
+            // Setup Chat provider (for prefix/suffix)
+            RegisteredServiceProvider<Chat> chatRsp = Bukkit.getServicesManager().getRegistration(Chat.class);
+            if (chatRsp != null) {
+                chat = chatRsp.getProvider();
+                if (chat != null) {
+                    chatAvailable = true;
+                    if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                        plugin.getLogger().info("Vault Chat integration enabled! Provider: " + chat.getName());
+                    }
+                }
+            }
+            
+            if (!chatAvailable && "prefix".equalsIgnoreCase(mode)) {
+                plugin.getLogger().warning("Chat provider not available! Prefix mode will use command fallback.");
+            }
+            
             return true;
         });
     }
@@ -96,9 +137,18 @@ public class VaultHook {
     public CompletableFuture<Boolean> setLiveStatus(@NotNull Player player, boolean isLive) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                if (isVaultAvailable()) {
-                    return setLiveStatusVault(player, isLive);
+                if ("prefix".equalsIgnoreCase(mode)) {
+                    // Try Vault Chat API first (works with all Vault-compatible plugins)
+                    if (chatAvailable && setLiveStatusVaultChat(player, isLive)) {
+                        return true;
+                    }
+                    // Fallback to command execution
+                    return setLiveStatusCommand(player, isLive);
                 } else {
+                    // Group mode - use Vault Permission API or commands
+                    if (vaultAvailable) {
+                        return setLiveStatusVaultGroup(player, isLive);
+                    }
                     return setLiveStatusCommand(player, isLive);
                 }
             } catch (Exception e) {
@@ -110,15 +160,64 @@ public class VaultHook {
     }
     
     /**
-     * Set live status using Vault
+     * Set live status using Vault Chat API (prefix/suffix)
+     * Works with all Vault-compatible permission plugins
      * 
      * @param player The player
      * @param isLive Whether the player is live
      * @return True if successful
      */
-    private boolean setLiveStatusVault(@NotNull Player player, boolean isLive) {
+    private boolean setLiveStatusVaultChat(@NotNull Player player, boolean isLive) {
         try {
-            String group = isLive ? liveGroup : standardGroup;
+            // For better compatibility, we'll use a different approach
+            // Instead of modifying the main prefix, we'll use a separate prefix slot
+            
+            if (isLive) {
+                // Try to set a temporary prefix that can be layered
+                // This approach works better with most permission plugins
+                String currentPrefix = chat.getPlayerPrefix(player.getWorld().getName(), player);
+                if (currentPrefix == null) currentPrefix = "";
+                
+                // Check if already has live prefix to avoid duplicates
+                if (!currentPrefix.contains("🔴") && !currentPrefix.contains("LIVE")) {
+                    // Add live prefix at the beginning
+                    String newPrefix = livePrefix + currentPrefix;
+                    chat.setPlayerPrefix(player, newPrefix);
+                    if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                        plugin.getLogger().info("Added live prefix for " + player.getName() + " using Vault Chat API");
+                    }
+                }
+            } else {
+                // Get current prefix and remove only the live part
+                String currentPrefix = chat.getPlayerPrefix(player.getWorld().getName(), player);
+                if (currentPrefix != null && (currentPrefix.contains("🔴") || currentPrefix.contains("LIVE"))) {
+                    // Remove the live prefix part while preserving the rest
+                    String newPrefix = currentPrefix.replace(livePrefix, "");
+                    // Clean up any extra spaces
+                    newPrefix = newPrefix.replaceAll("^\\s+", "");
+                    chat.setPlayerPrefix(player, newPrefix);
+                    if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                        plugin.getLogger().info("Removed live prefix for " + player.getName() + " using Vault Chat API");
+                    }
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Vault Chat API error: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Set live status using Vault Permission API (group mode)
+     * 
+     * @param player The player
+     * @param isLive Whether the player is live
+     * @return True if successful
+     */
+    private boolean setLiveStatusVaultGroup(@NotNull Player player, boolean isLive) {
+        try {
+            String targetGroup = isLive ? liveGroup : standardGroup;
             
             // Remove from current groups first
             for (String currentGroup : permission.getPlayerGroups(player)) {
@@ -126,16 +225,21 @@ public class VaultHook {
             }
             
             // Add to new group
-            return permission.playerAddGroup(player, group);
+            boolean success = permission.playerAddGroup(player, targetGroup);
+            
+            if (success) {
+                plugin.getLogger().info("Set group for " + player.getName() + " to " + targetGroup + " using Vault Permission API");
+            }
+            
+            return success;
         } catch (Exception e) {
-            plugin.getLogger().severe("Vault error: " + e.getMessage());
-            e.printStackTrace();
+            plugin.getLogger().warning("Vault Permission API error: " + e.getMessage());
             return false;
         }
     }
     
     /**
-     * Set live status using command fallback
+     * Set live status using command
      * 
      * @param player The player
      * @param isLive Whether the player is live
@@ -143,19 +247,45 @@ public class VaultHook {
      */
     private boolean setLiveStatusCommand(@NotNull Player player, boolean isLive) {
         try {
-            String command = isLive ? liveCommand : standardCommand;
-            command = command.replace("%player%", player.getName());
+            String command;
+            
+            if ("prefix".equalsIgnoreCase(mode)) {
+                // Use prefix mode with better command templates
+                if (isLive) {
+                    // Try LuckPerms meta approach first (preserves existing prefix)
+                    command = "lp user %player% meta setprefix %priority% %prefix%";
+                    command = command.replace("%player%", player.getName());
+                    command = command.replace("%prefix%", livePrefix);
+                    command = command.replace("%priority%", String.valueOf(prefixPriority));
+                } else {
+                    // Remove only the live prefix
+                    command = "lp user %player% meta removeprefix %priority%";
+                    command = command.replace("%player%", player.getName());
+                    command = command.replace("%priority%", String.valueOf(prefixPriority));
+                }
+            } else {
+                // Use group mode (legacy)
+                if (isLive) {
+                    command = liveCommand.replace("%player%", player.getName());
+                } else {
+                    command = offlineCommand.replace("%player%", player.getName());
+                }
+            }
             
             // Execute command as console
             boolean success = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
             
-            if (!success) {
-                plugin.getLogger().warning("Failed to execute permission command: " + command);
+            if (success) {
+                if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                    plugin.getLogger().info("Set live status for " + player.getName() + " to " + isLive + " using " + mode + " mode");
+                }
+            } else {
+                plugin.getLogger().warning("Failed to execute command: " + command);
             }
             
             return success;
         } catch (Exception e) {
-            plugin.getLogger().severe("Command fallback error: " + e.getMessage());
+            plugin.getLogger().severe("Command execution error: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -229,7 +359,27 @@ public class VaultHook {
     }
     
     /**
-     * Get the live group name
+     * Get the current mode
+     * 
+     * @return The mode ("prefix" or "group")
+     */
+    @NotNull
+    public String getMode() {
+        return mode;
+    }
+    
+    /**
+     * Get the live prefix
+     * 
+     * @return The live prefix
+     */
+    @NotNull
+    public String getLivePrefix() {
+        return livePrefix;
+    }
+    
+    /**
+     * Get the live group name (for group mode)
      * 
      * @return The live group name
      */
@@ -239,7 +389,7 @@ public class VaultHook {
     }
     
     /**
-     * Get the standard group name
+     * Get the standard group name (for group mode)
      * 
      * @return The standard group name
      */
@@ -259,20 +409,22 @@ public class VaultHook {
     }
     
     /**
-     * Get the standard command template
+     * Get the offline command template
      * 
-     * @return The standard command template
+     * @return The offline command template
      */
     @NotNull
-    public String getStandardCommand() {
-        return standardCommand;
+    public String getOfflineCommand() {
+        return offlineCommand;
     }
     
     /**
      * Reload the Vault hook configuration
      */
     public void reload() {
-        // Re-initialize to pick up config changes
+        // Reload configuration
+        loadConfiguration();
+        // Re-initialize Vault connection
         initialize();
     }
 }

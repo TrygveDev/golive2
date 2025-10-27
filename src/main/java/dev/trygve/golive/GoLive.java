@@ -39,31 +39,56 @@ public final class GoLive extends JavaPlugin {
     
     // Utilities
     private UpdateChecker updateChecker;
+    
+    // Cached version for performance
+    private String pluginVersion;
 
     @Override
     public void onEnable() {
         instance = this;
         
-        getLogger().info("==========================================");
-        getLogger().info("     GoLive v2.0 - Modern Edition       ");
-        getLogger().info("==========================================");
+        // Cache version for performance
+        pluginVersion = getPluginMeta().getVersion();
+        
+        // Professional startup message
+        printStartupHeader();
         
         // Initialize plugin asynchronously
         initializePlugin().thenAccept(success -> {
             if (success) {
-                getLogger().info("GoLive v2.0 has been enabled successfully!");
-                getLogger().info("Available commands: /golive, /live, /offline");
-                getLogger().info("==========================================");
+                getLogger().info("GoLive v" + pluginVersion + " has been enabled successfully!");
+                if (getConfig().getBoolean("debug.enabled", false)) {
+                    getLogger().info("Available commands: /golive, /live, /offline");
+                }
             } else {
-                getLogger().severe("Failed to initialize GoLive v2.0!");
+                getLogger().severe("Failed to initialize GoLive v" + pluginVersion + "!");
                 getServer().getPluginManager().disablePlugin(this);
             }
         });
     }
+    
+    /**
+     * Print the professional startup header
+     */
+    private void printStartupHeader() {
+        String serverType = getServer().getName();
+
+        getLogger().info("\u001B[35m   ___  ___  _    _____   _____ \u001B[0m");
+        getLogger().info("\u001B[35m  / __|/ _ \\| |  |_ _\\ \\ / / __|\u001B[0m");
+        getLogger().info("\u001B[35m | (_ | (_) | |__ | | \\ V /| _| \u001B[0m");
+        getLogger().info("\u001B[35m  \\___/\\___/|____|___| \\_/ |___|\u001B[0m");
+        getLogger().info("\u001B[35m                                \u001B[0m");
+        getLogger().info("\u001B[35mGoLive v" + pluginVersion + "\u001B[0m \u001B[90m- Running on \u001B[33m" + serverType + "\u001B[0m");
+    }
+
+   
+                                  
 
     @Override
     public void onDisable() {
-        getLogger().info("GoLive v2.0 is shutting down...");
+        if (getConfig().getBoolean("debug.enabled", false)) {
+            getLogger().info("GoLive v" + pluginVersion + " is shutting down...");
+        }
         
         // Shutdown managers
         if (liveStatusManager != null) {
@@ -82,7 +107,9 @@ public final class GoLive extends JavaPlugin {
             placeholderHook.unregister();
         }
         
-        getLogger().info("GoLive v2.0 has been disabled!");
+        if (getConfig().getBoolean("debug.enabled", false)) {
+            getLogger().info("GoLive v" + pluginVersion + " has been disabled!");
+        }
     }
 
     /**
@@ -135,10 +162,14 @@ public final class GoLive extends JavaPlugin {
                 if (getConfig().getBoolean("metrics.enabled", true)) {
                     try {
                         new MetricsManager(this, 11803);
-                        getLogger().info("Metrics enabled successfully!");
+                        if (getConfig().getBoolean("debug.enabled", false)) {
+                            getLogger().info("Metrics enabled successfully!");
+                        }
                     } catch (Exception e) {
                         getLogger().warning("Failed to initialize metrics: " + e.getMessage());
-                        getLogger().info("Continuing without metrics...");
+                        if (getConfig().getBoolean("debug.enabled", false)) {
+                            getLogger().info("Continuing without metrics...");
+                        }
                     }
                 }
                 
@@ -187,7 +218,9 @@ public final class GoLive extends JavaPlugin {
                 return false;
             }
             
-            getLogger().info("Database initialized successfully! Type: " + database.getDatabaseType());
+            if (getConfig().getBoolean("debug.enabled", false)) {
+                getLogger().info("Database initialized successfully! Type: " + database.getDatabaseType());
+            }
             return true;
         } catch (Exception e) {
             getLogger().severe("Database initialization error: " + e.getMessage());

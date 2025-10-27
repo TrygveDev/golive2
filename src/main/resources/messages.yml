@@ -10,12 +10,12 @@ general:
     player-only: "<red>This command can only be used by players!</red>"
     invalid-arguments: "<red>Invalid arguments! Use <#a855f7>/golive help</#a855f7> for help.</red>"
     plugin-reloaded: "<#8b5cf6>GoLive configuration has been reloaded!</#8b5cf6>"
-    cooldown-active: "<red>You must wait <#a855f7>%time%</#a855f7> seconds before going live again!</red>"
+    cooldown-active: "<red>You must wait <#a855f7>%time%</#a855f7> seconds before announcing that you are live again!</red>"
 
 # Live Status Messages
 live:
     # Message when going live
-    announcement: "<gradient:#8b5cf6:#4c1d95>%player%</gradient> <#8b5cf6>is now live at</#8b5cf6> <click:open_url:'%streamlink%'><hover:show_text:'<#8b5cf6>Click to open stream!</#8b5cf6>'><underlined>%streamlink%</underlined></hover></click><#8b5cf6>!</#8b5cf6>"
+    announcement: "<gradient:#8b5cf6:#4c1d95>%player%</gradient> <#8b5cf6>is now live at</#8b5cf6> <click:open_url:'%streamlink%'><hover:show_text:'<#8b5cf6>Click to open stream!</#8b5cf6>'><underlined>%streamlink%</underlined></hover></click><#8b5cf6>☜!</#8b5cf6>"
 
     # Hover text for clickable messages
     hover-text: "<#8b5cf6>Click to open the stream!</#8b5cf6>"
@@ -36,6 +36,9 @@ offline:
 
     # Confirmation message to the player
     confirmation: "<#4c1d95>You are no longer live.</#4c1d95>"
+
+    # Message when trying to go offline while not live
+    not-live: "<red>You are not currently live!</red>"
 
 # Stream Link Messages
 stream-link:

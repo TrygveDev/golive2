@@ -81,7 +81,9 @@ public class MessageManager {
             loadMessagesFromConfig(messagesConfig, "errors", "errors");
             loadMessagesFromConfig(messagesConfig, "placeholders", "placeholders");
             
-            plugin.getLogger().info("Loaded " + messages.size() + " messages from messages.yml");
+            if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                plugin.getLogger().info("Loaded " + messages.size() + " messages from messages.yml");
+            }
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to load messages: " + e.getMessage());
             e.printStackTrace();
@@ -177,7 +179,8 @@ public class MessageManager {
      */
     public void sendMessage(@NotNull Player player, @NotNull String key) {
         Component message = getMessageComponent(key);
-        player.sendMessage(message);
+        Component prefixedMessage = getPrefix().append(Component.text(" ")).append(message);
+        player.sendMessage(prefixedMessage);
     }
     
     /**
@@ -189,7 +192,8 @@ public class MessageManager {
      */
     public void sendMessage(@NotNull Player player, @NotNull String key, @NotNull String... placeholders) {
         Component message = getMessageComponent(key, placeholders);
-        player.sendMessage(message);
+        Component prefixedMessage = getPrefix().append(Component.text(" ")).append(message);
+        player.sendMessage(prefixedMessage);
     }
     
     /**
@@ -199,7 +203,8 @@ public class MessageManager {
      */
     public void broadcastMessage(@NotNull String key) {
         Component message = getMessageComponent(key);
-        Bukkit.broadcast(message);
+        Component prefixedMessage = getPrefix().append(Component.text(" ")).append(message);
+        Bukkit.broadcast(prefixedMessage);
     }
     
     /**
@@ -209,6 +214,51 @@ public class MessageManager {
      * @param placeholders The placeholders to replace
      */
     public void broadcastMessage(@NotNull String key, @NotNull String... placeholders) {
+        Component message = getMessageComponent(key, placeholders);
+        Component prefixedMessage = getPrefix().append(Component.text(" ")).append(message);
+        Bukkit.broadcast(prefixedMessage);
+    }
+    
+    /**
+     * Send a message to a player without prefix
+     * 
+     * @param player The player
+     * @param key The message key
+     */
+    public void sendMessageNoPrefix(@NotNull Player player, @NotNull String key) {
+        Component message = getMessageComponent(key);
+        player.sendMessage(message);
+    }
+    
+    /**
+     * Send a message to a player without prefix with placeholders
+     * 
+     * @param player The player
+     * @param key The message key
+     * @param placeholders The placeholders to replace
+     */
+    public void sendMessageNoPrefix(@NotNull Player player, @NotNull String key, @NotNull String... placeholders) {
+        Component message = getMessageComponent(key, placeholders);
+        player.sendMessage(message);
+    }
+    
+    /**
+     * Send a message to all players without prefix
+     * 
+     * @param key The message key
+     */
+    public void broadcastMessageNoPrefix(@NotNull String key) {
+        Component message = getMessageComponent(key);
+        Bukkit.broadcast(message);
+    }
+    
+    /**
+     * Send a message to all players without prefix with placeholders
+     * 
+     * @param key The message key
+     * @param placeholders The placeholders to replace
+     */
+    public void broadcastMessageNoPrefix(@NotNull String key, @NotNull String... placeholders) {
         Component message = getMessageComponent(key, placeholders);
         Bukkit.broadcast(message);
     }

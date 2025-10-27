@@ -105,7 +105,7 @@ public class OfflineCommand implements CommandExecutor, TabCompleter {
     private void goOfflineDirect(@NotNull Player player) {
         // Check if player is actually live
         if (!liveStatusManager.isPlayerLive(player.getUniqueId())) {
-            messageManager.sendMessage(player, "You are not currently live.");
+            messageManager.sendMessage(player, "offline.not-live");
             return;
         }
         

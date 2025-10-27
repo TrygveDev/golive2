@@ -68,7 +68,9 @@ public class LiveStatusManager {
                 // Start auto-removal task
                 startAutoRemovalTask();
                 
-                plugin.getLogger().info("LiveStatusManager initialized with " + livePlayers.size() + " live players.");
+                if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                    plugin.getLogger().info("LiveStatusManager initialized with " + livePlayers.size() + " live players.");
+                }
                 return true;
             } catch (Exception e) {
                 plugin.getLogger().severe("Failed to initialize LiveStatusManager: " + e.getMessage());
@@ -291,18 +293,11 @@ public class LiveStatusManager {
      * @param streamLink The stream link
      */
     private void sendLiveAnnouncement(@NotNull Player player, @NotNull String streamLink) {
-        // Send broadcast message
-        if (plugin.getConfig().getBoolean("announcements.clickable-messages", true)) {
-            messageManager.broadcastMessage("live.announcement", 
-                "%player%", player.getName(),
-                "%streamlink%", streamLink
-            );
-        } else {
-            messageManager.broadcastMessage("live.announcement", 
-                "%player%", player.getName(),
-                "%streamlink%", streamLink
-            );
-        }
+        // Send broadcast message (without GoLive prefix for cleaner announcements)
+        messageManager.broadcastMessageNoPrefix("live.announcement", 
+            "%player%", player.getName(),
+            "%streamlink%", streamLink
+        );
         
         // Send title
         if (plugin.getConfig().getBoolean("announcements.title.enabled", true)) {
@@ -320,7 +315,7 @@ public class LiveStatusManager {
             SoundUtils.playSound(player, soundType, volume, pitch);
         }
         
-        // Send confirmation message
+        // Send confirmation message (with GoLive prefix)
         messageManager.sendMessage(player, "live.confirmation");
     }
     
@@ -330,10 +325,10 @@ public class LiveStatusManager {
      * @param player The player
      */
     private void sendOfflineAnnouncement(@NotNull Player player) {
-        // Send broadcast message
-        messageManager.broadcastMessage("offline.announcement", "%player%", player.getName());
+        // Send broadcast message (without GoLive prefix for cleaner announcements)
+        messageManager.broadcastMessageNoPrefix("offline.announcement", "%player%", player.getName());
         
-        // Send confirmation message
+        // Send confirmation message (with GoLive prefix)
         messageManager.sendMessage(player, "offline.confirmation");
     }
     
