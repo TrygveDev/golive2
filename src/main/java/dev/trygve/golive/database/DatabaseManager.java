@@ -225,7 +225,9 @@ public abstract class DatabaseManager {
     @NotNull
     protected CompletableFuture<Boolean> executeAsync(@NotNull String sql, @Nullable Object... params) {
         return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = getConnection()) {
+            Connection connection = null;
+            try {
+                connection = getConnection();
                 try (var statement = connection.prepareStatement(sql)) {
                     if (params != null) {
                         for (int i = 0; i < params.length; i++) {
@@ -236,9 +238,41 @@ public abstract class DatabaseManager {
                     return true;
                 }
             } catch (SQLException e) {
-                plugin.getLogger().severe("Database error: " + e.getMessage());
+                plugin.getLogger().severe("Database error executing SQL: " + sql);
+                plugin.getLogger().severe("Error details: " + e.getMessage());
+                plugin.getLogger().severe("SQL State: " + e.getSQLState());
+                plugin.getLogger().severe("Error Code: " + e.getErrorCode());
+                
+                // Log parameters for debugging (but not passwords)
+                if (params != null && params.length > 0) {
+                    StringBuilder paramLog = new StringBuilder("Parameters: ");
+                    for (int i = 0; i < params.length; i++) {
+                        if (params[i] != null && params[i].toString().toLowerCase().contains("password")) {
+                            paramLog.append("[REDACTED]");
+                        } else {
+                            paramLog.append(params[i]);
+                        }
+                        if (i < params.length - 1) {
+                            paramLog.append(", ");
+                        }
+                    }
+                    plugin.getLogger().info(paramLog.toString());
+                }
+                
                 e.printStackTrace();
                 return false;
+            } catch (Exception e) {
+                plugin.getLogger().severe("Unexpected error executing SQL: " + e.getMessage());
+                e.printStackTrace();
+                return false;
+            } finally {
+                if (connection != null) {
+                    try {
+                        connection.close();
+                    } catch (SQLException e) {
+                        plugin.getLogger().warning("Failed to close database connection: " + e.getMessage());
+                    }
+                }
             }
         });
     }

@@ -23,6 +23,7 @@ public class MessageManager {
     private final GoLive plugin;
     private final Map<String, String> messages;
     private String prefix;
+    private org.bukkit.configuration.file.YamlConfiguration messagesConfig;
     
     /**
      * Create a new MessageManager
@@ -59,31 +60,58 @@ public class MessageManager {
     private void loadMessages() {
         File messagesFile = new File(plugin.getDataFolder(), "messages.yml");
         if (!messagesFile.exists()) {
-            plugin.saveResource("messages.yml", false);
+            try {
+                plugin.saveResource("messages.yml", false);
+                plugin.getLogger().info("Created default messages.yml file");
+            } catch (Exception e) {
+                plugin.getLogger().severe("Failed to create default messages.yml: " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
         }
         
         try {
             // Load messages.yml as a separate configuration
-            org.bukkit.configuration.file.YamlConfiguration messagesConfig = new org.bukkit.configuration.file.YamlConfiguration();
-            messagesConfig.load(messagesFile);
+            this.messagesConfig = new org.bukkit.configuration.file.YamlConfiguration();
+            this.messagesConfig.load(messagesFile);
             
-            // Load prefix
-            this.prefix = messagesConfig.getString("prefix", "<gradient:#00ff00:#ff0000>[GoLive]</gradient>");
+            // Validate that messages.yml is not empty
+            if (this.messagesConfig.getKeys(false).isEmpty()) {
+                plugin.getLogger().severe("messages.yml appears to be empty or corrupted!");
+                return;
+            }
+            
+            // Load prefix with fallback
+            this.prefix = this.messagesConfig.getString("prefix", "<gradient:#8b5cf6:#4c1d95>[GoLive]</gradient>");
+            if (this.prefix == null || this.prefix.trim().isEmpty()) {
+                plugin.getLogger().warning("Prefix is empty in messages.yml, using default");
+                this.prefix = "<gradient:#8b5cf6:#4c1d95>[GoLive]</gradient>";
+            }
             
             // Load all messages
-            loadMessagesFromConfig(messagesConfig, "general", "general");
-            loadMessagesFromConfig(messagesConfig, "live", "live");
-            loadMessagesFromConfig(messagesConfig, "offline", "offline");
-            loadMessagesFromConfig(messagesConfig, "stream-link", "stream-link");
-            loadMessagesFromConfig(messagesConfig, "gui", "gui");
-            loadMessagesFromConfig(messagesConfig, "help", "help");
-            loadMessagesFromConfig(messagesConfig, "admin", "admin");
-            loadMessagesFromConfig(messagesConfig, "errors", "errors");
-            loadMessagesFromConfig(messagesConfig, "placeholders", "placeholders");
+            int loadedCount = 0;
+            loadedCount += loadMessagesFromConfig(this.messagesConfig, "general", "general");
+            loadedCount += loadMessagesFromConfig(this.messagesConfig, "live", "live");
+            loadedCount += loadMessagesFromConfig(this.messagesConfig, "offline", "offline");
+            loadedCount += loadMessagesFromConfig(this.messagesConfig, "stream-link", "stream-link");
+            loadedCount += loadMessagesFromConfig(this.messagesConfig, "gui", "gui");
+            loadedCount += loadMessagesFromConfig(this.messagesConfig, "help", "help");
+            loadedCount += loadMessagesFromConfig(this.messagesConfig, "admin", "admin");
+            loadedCount += loadMessagesFromConfig(this.messagesConfig, "errors", "errors");
+            loadedCount += loadMessagesFromConfig(this.messagesConfig, "placeholders", "placeholders");
+            
+            if (loadedCount == 0) {
+                plugin.getLogger().severe("No messages were loaded from messages.yml! Check file format.");
+                return;
+            }
             
             if (plugin.getConfig().getBoolean("debug.enabled", false)) {
-                plugin.getLogger().info("Loaded " + messages.size() + " messages from messages.yml");
+                plugin.getLogger().info("Loaded " + loadedCount + " messages from messages.yml");
             }
+        } catch (org.bukkit.configuration.InvalidConfigurationException e) {
+            plugin.getLogger().severe("Invalid YAML format in messages.yml: " + e.getMessage());
+            plugin.getLogger().severe("Please check your messages.yml file for syntax errors");
+            e.printStackTrace();
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to load messages: " + e.getMessage());
             e.printStackTrace();
@@ -96,20 +124,26 @@ public class MessageManager {
      * @param config The config to load from
      * @param section The section name
      * @param prefix The prefix for message keys
+     * @return Number of messages loaded from this section
      */
-    private void loadMessagesFromConfig(@NotNull org.bukkit.configuration.Configuration config, @NotNull String section, @NotNull String prefix) {
+    private int loadMessagesFromConfig(@NotNull org.bukkit.configuration.Configuration config, @NotNull String section, @NotNull String prefix) {
+        int count = 0;
         if (config.contains(section)) {
             var sectionConfig = config.getConfigurationSection(section);
             if (sectionConfig != null) {
                 for (String key : sectionConfig.getKeys(true)) {
                     String fullKey = prefix + "." + key;
                     String value = sectionConfig.getString(key);
-                    if (value != null) {
+                    if (value != null && !value.trim().isEmpty()) {
                         messages.put(fullKey, value);
+                        count++;
+                    } else if (value != null && value.trim().isEmpty()) {
+                        plugin.getLogger().warning("Empty message found for key: " + fullKey);
                     }
                 }
             }
         }
+        return count;
     }
     
     /**
@@ -145,6 +179,20 @@ public class MessageManager {
     public Component getMessageComponent(@NotNull String key) {
         String message = getMessage(key, "<red>Message not found: " + key + "</red>");
         return ColorUtils.toComponent(message);
+    }
+    
+    /**
+     * Get a string list from the messages config
+     * 
+     * @param key The config key
+     * @return The string list, or empty list if not found
+     */
+    @NotNull
+    public java.util.List<String> getStringList(@NotNull String key) {
+        if (messagesConfig != null && messagesConfig.contains(key)) {
+            return messagesConfig.getStringList(key);
+        }
+        return new java.util.ArrayList<>();
     }
     
     /**

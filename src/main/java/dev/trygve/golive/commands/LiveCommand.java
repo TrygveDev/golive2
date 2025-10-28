@@ -4,6 +4,8 @@ import dev.trygve.golive.GoLive;
 import dev.trygve.golive.managers.LiveStatusManager;
 import dev.trygve.golive.managers.MessageManager;
 import dev.trygve.golive.gui.GuiManager;
+import dev.trygve.golive.utils.ColorUtils;
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -143,17 +145,36 @@ public class LiveCommand implements CommandExecutor, TabCompleter {
         
         // Set stream link in database
         CompletableFuture.runAsync(() -> {
-            plugin.getDatabase().setStreamLink(player.getUniqueId(), link).thenAccept(success -> {
+            try {
+                plugin.getDatabase().setStreamLink(player.getUniqueId(), link).thenAccept(success -> {
+                    plugin.getServer().getScheduler().runTask(plugin, () -> {
+                        // Get fresh player reference
+                        Player currentPlayer = Bukkit.getPlayer(player.getUniqueId());
+                        if (currentPlayer == null || !currentPlayer.isOnline()) {
+                            return;
+                        }
+                        
+                        if (success) {
+                            // Update the cache in LiveStatusManager
+                            liveStatusManager.updatePlayerStreamLink(player.getUniqueId(), link);
+                            messageManager.sendMessage(currentPlayer, "stream-link.set", "%link%", link);
+                        } else {
+                            messageManager.sendMessage(currentPlayer, "errors.database-error");
+                        }
+                    });
+                });
+            } catch (Exception e) {
+                plugin.getLogger().severe("Error setting stream link: " + e.getMessage());
+                e.printStackTrace();
+                
+                // Send error message on main thread
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    if (success) {
-                        // Update the cache in LiveStatusManager
-                        liveStatusManager.updatePlayerStreamLink(player.getUniqueId(), link);
-                        messageManager.sendMessage(player, "stream-link.set", "%link%", link);
-                    } else {
-                        messageManager.sendMessage(player, "errors.database-error");
+                    Player currentPlayer = Bukkit.getPlayer(player.getUniqueId());
+                    if (currentPlayer != null && currentPlayer.isOnline()) {
+                        messageManager.sendMessage(currentPlayer, "errors.database-error");
                     }
                 });
-            });
+            }
         });
     }
     
@@ -180,7 +201,7 @@ public class LiveCommand implements CommandExecutor, TabCompleter {
         List<String> helpMessages = plugin.getConfig().getStringList("help.commands");
         
         for (String message : helpMessages) {
-            player.sendMessage(messageManager.getMessageComponent("help.commands", message));
+            player.sendMessage(ColorUtils.toComponent(message));
         }
     }
     
@@ -191,26 +212,48 @@ public class LiveCommand implements CommandExecutor, TabCompleter {
      * @return True if valid
      */
     private boolean isValidStreamLink(@NotNull String link) {
-        // Check if link starts with https://
+        // Length check
+        if (link.length() > 500) {
+            return false;
+        }
+        
+        // HTTPS requirement
         if (!link.startsWith("https://")) {
             return false;
         }
         
-        // Check if link is from allowed domain
-        List<String> allowedDomains = plugin.getConfig().getStringList("stream-validation.allowed-domains");
-        if (!allowedDomains.isEmpty()) {
-            boolean allowed = false;
-            for (String domain : allowedDomains) {
-                if (link.toLowerCase().contains(domain.toLowerCase())) {
-                    allowed = true;
-                    break;
-                }
-            }
-            if (!allowed) {
+        // URL structure validation
+        try {
+            java.net.URI uri = new java.net.URI(link);
+            String host = uri.getHost();
+            if (host == null) {
                 return false;
             }
+            
+            // Domain validation (case-insensitive)
+            List<String> allowedDomains = plugin.getConfig().getStringList("stream-validation.allowed-domains");
+            if (!allowedDomains.isEmpty()) {
+                boolean allowed = allowedDomains.stream()
+                    .anyMatch(domain -> host.toLowerCase().endsWith(domain.toLowerCase()));
+                if (!allowed) {
+                    return false;
+                }
+            }
+            
+            // Additional security checks
+            // Prevent potential XSS or malicious URLs
+            if (link.contains("javascript:") || link.contains("data:") || link.contains("vbscript:")) {
+                return false;
+            }
+            
+            // Check for suspicious characters
+            if (link.contains("<") || link.contains(">") || link.contains("\"") || link.contains("'")) {
+                return false;
+            }
+            
+            return true;
+        } catch (java.net.URISyntaxException e) {
+            return false;
         }
-        
-        return true;
     }
 }

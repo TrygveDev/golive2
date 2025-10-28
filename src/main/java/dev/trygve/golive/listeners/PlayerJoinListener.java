@@ -55,6 +55,11 @@ public class PlayerJoinListener implements Listener {
             createPlayerInDatabase(player);
         }
         
+        // Check if player is already live and start action bar if needed
+        if (liveStatusManager.isPlayerLive(player.getUniqueId())) {
+            plugin.getActionBarManager().startActionBar(player);
+        }
+        
         // Note: Players must manually run /live to announce their stream
         // We don't automatically restore live status on join
     }
@@ -67,6 +72,9 @@ public class PlayerJoinListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(@NotNull PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        
+        // Stop action bar for quitting player
+        plugin.getActionBarManager().stopActionBar(player.getUniqueId());
         
         // Save player's live status
         if (liveStatusManager.isPlayerLive(player.getUniqueId())) {

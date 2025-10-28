@@ -96,8 +96,27 @@ public class PlaceholderHook {
      */
     public void reload() {
         if (isPlaceholderApiAvailable()) {
+            // Unregister synchronously
             unregister();
         }
-        initialize();
+        
+        // Re-initialize synchronously to avoid async issues
+        if (!Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            plugin.getLogger().info("PlaceholderAPI not found. Placeholders will not work.");
+            return;
+        }
+        
+        try {
+            expansion = new GoLivePlaceholders(plugin);
+            if (expansion.register()) {
+                placeholderApiAvailable = true;
+                plugin.getLogger().info("PlaceholderAPI integration reloaded!");
+            } else {
+                plugin.getLogger().warning("Failed to register PlaceholderAPI expansion after reload!");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error reloading PlaceholderAPI: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

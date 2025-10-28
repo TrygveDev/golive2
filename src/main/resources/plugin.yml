@@ -1,5 +1,5 @@
 name: GoLive
-version: "2.0.0"
+version: "${project.version}"
 main: dev.trygve.golive.GoLive
 api-version: "1.21"
 authors: [Trygve]
@@ -11,7 +11,7 @@ softdepend: [Vault, PlaceholderAPI]
 commands:
     golive:
         description: Main GoLive command for admin functions
-        usage: /golive [reload|info|update|help]
+        usage: /golive [reload|update|help]
         permission: golive.admin
         permission-message: "You don't have permission to use this command!"
         aliases: [gl]

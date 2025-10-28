@@ -107,10 +107,10 @@ public class UpdateChecker {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (player.hasPermission("golive.admin")) {
                 // Send message without prefix to avoid ugly brackets
-                player.sendMessage(plugin.getMessageManager().getMessageComponent("admin.update-available",
+                plugin.getMessageManager().sendMessageNoPrefix(player, "admin.update-available",
                     "%current-version%", currentVersion,
                     "%latest-version%", latestVersion,
-                    "%download-url%", downloadUrl));
+                    "%download-url%", downloadUrl);
             }
         }
     }

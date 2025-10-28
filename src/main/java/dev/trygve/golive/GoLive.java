@@ -11,8 +11,10 @@ import dev.trygve.golive.hooks.PlaceholderHook;
 import dev.trygve.golive.hooks.VaultHook;
 import dev.trygve.golive.listeners.GuiListener;
 import dev.trygve.golive.listeners.PlayerJoinListener;
+import dev.trygve.golive.managers.ActionBarManager;
 import dev.trygve.golive.managers.LiveStatusManager;
 import dev.trygve.golive.managers.MessageManager;
+import dev.trygve.golive.utils.HealthChecker;
 import dev.trygve.golive.utils.MetricsManager;
 import dev.trygve.golive.utils.UpdateChecker;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -30,6 +32,7 @@ public final class GoLive extends JavaPlugin {
     // Core managers
     private DatabaseManager database;
     private MessageManager messageManager;
+    private ActionBarManager actionBarManager;
     private LiveStatusManager liveStatusManager;
     private GuiManager guiManager;
     
@@ -39,6 +42,7 @@ public final class GoLive extends JavaPlugin {
     
     // Utilities
     private UpdateChecker updateChecker;
+    private HealthChecker healthChecker;
     
     // Cached version for performance
     private String pluginVersion;
@@ -90,6 +94,11 @@ public final class GoLive extends JavaPlugin {
             getLogger().info("GoLive v" + pluginVersion + " is shutting down...");
         }
         
+        // Stop health checker
+        if (healthChecker != null) {
+            healthChecker.stop();
+        }
+        
         // Shutdown managers
         if (liveStatusManager != null) {
             liveStatusManager.shutdown();
@@ -124,6 +133,11 @@ public final class GoLive extends JavaPlugin {
                 // Save default config
                 saveDefaultConfig();
                 
+                // Validate configuration
+                if (!validateConfiguration()) {
+                    return false;
+                }
+                
                 // Initialize database
                 if (!initializeDatabase()) {
                     return false;
@@ -139,11 +153,20 @@ public final class GoLive extends JavaPlugin {
                 vaultHook = new VaultHook(this);
                 vaultHook.initialize().join();
                 
+                // Initialize action bar manager
+                actionBarManager = new ActionBarManager(this, messageManager);
+                if (!actionBarManager.initialize()) {
+                    return false;
+                }
+                
                 // Initialize live status manager
-                liveStatusManager = new LiveStatusManager(this, database, vaultHook, messageManager);
+                liveStatusManager = new LiveStatusManager(this, database, vaultHook, messageManager, actionBarManager);
                 if (!liveStatusManager.initialize().join()) {
                     return false;
                 }
+                
+                // Set the live status manager in action bar manager
+                actionBarManager.setLiveStatusManager(liveStatusManager);
                 
                 // Initialize GUI manager
                 guiManager = new GuiManager(this, liveStatusManager, messageManager);
@@ -157,6 +180,10 @@ public final class GoLive extends JavaPlugin {
                 
                 // Initialize update checker
                 updateChecker = new UpdateChecker(this, 88288);
+                
+                // Initialize health checker
+                healthChecker = new HealthChecker(this);
+                healthChecker.start();
                 
                 // Initialize metrics
                 if (getConfig().getBoolean("metrics.enabled", true)) {
@@ -193,6 +220,91 @@ public final class GoLive extends JavaPlugin {
         });
     }
 
+    /**
+     * Validate configuration values
+     * 
+     * @return True if configuration is valid
+     */
+    private boolean validateConfiguration() {
+        try {
+            // Validate database type
+            String databaseType = getConfig().getString("database.type", "SQLITE").toUpperCase();
+            if (!databaseType.equals("SQLITE") && !databaseType.equals("MYSQL")) {
+                getLogger().severe("Invalid database type: " + databaseType + ". Must be SQLITE or MYSQL.");
+                return false;
+            }
+            
+            // Validate MySQL settings if using MySQL
+            if (databaseType.equals("MYSQL")) {
+                String host = getConfig().getString("database.mysql.host");
+                int port = getConfig().getInt("database.mysql.port");
+                String database = getConfig().getString("database.mysql.database");
+                String username = getConfig().getString("database.mysql.username");
+                String password = getConfig().getString("database.mysql.password");
+                
+                if (host == null || host.trim().isEmpty()) {
+                    getLogger().severe("MySQL host cannot be empty!");
+                    return false;
+                }
+                
+                if (port <= 0 || port > 65535) {
+                    getLogger().severe("Invalid MySQL port: " + port + ". Must be between 1 and 65535.");
+                    return false;
+                }
+                
+                if (database == null || database.trim().isEmpty()) {
+                    getLogger().severe("MySQL database name cannot be empty!");
+                    return false;
+                }
+                
+                if (username == null || username.trim().isEmpty()) {
+                    getLogger().severe("MySQL username cannot be empty!");
+                    return false;
+                }
+                
+                if (password == null) {
+                    getLogger().severe("MySQL password cannot be null!");
+                    return false;
+                }
+                
+                // Check for default insecure password
+                if (password.equals("password") || password.equals("your_secure_password")) {
+                    getLogger().warning("WARNING: You are using a default/insecure MySQL password! Please change it in config.yml");
+                }
+            }
+            
+            // Validate action bar settings
+            long updateInterval = getConfig().getLong("action-bar.update-interval", 20L);
+            if (updateInterval < 1 || updateInterval > 200) {
+                getLogger().warning("Action bar update interval is outside recommended range (1-200 ticks). Current: " + updateInterval);
+            }
+            
+            // Validate cooldown settings
+            int cooldownDuration = getConfig().getInt("cooldown.duration", 300);
+            if (cooldownDuration < 0) {
+                getLogger().severe("Cooldown duration cannot be negative!");
+                return false;
+            }
+            
+            // Validate auto-removal settings
+            int autoRemovalDelay = getConfig().getInt("announcements.auto-removal.delay", 43200);
+            if (autoRemovalDelay < 0) {
+                getLogger().severe("Auto-removal delay cannot be negative!");
+                return false;
+            }
+            
+            if (getConfig().getBoolean("debug.enabled", false)) {
+                getLogger().info("Configuration validation passed!");
+            }
+            
+            return true;
+        } catch (Exception e) {
+            getLogger().severe("Error validating configuration: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
     /**
      * Initialize the database
      * 
@@ -285,6 +397,14 @@ public final class GoLive extends JavaPlugin {
     }
 
     @NotNull
+    public ActionBarManager getActionBarManager() {
+        if (actionBarManager == null) {
+            throw new IllegalStateException("ActionBarManager is not initialized yet!");
+        }
+        return actionBarManager;
+    }
+
+    @NotNull
     public LiveStatusManager getLiveStatusManager() {
         if (liveStatusManager == null) {
             throw new IllegalStateException("LiveStatusManager is not initialized yet!");
@@ -322,5 +442,13 @@ public final class GoLive extends JavaPlugin {
             throw new IllegalStateException("UpdateChecker is not initialized yet!");
         }
         return updateChecker;
+    }
+    
+    @NotNull
+    public HealthChecker getHealthChecker() {
+        if (healthChecker == null) {
+            throw new IllegalStateException("HealthChecker is not initialized yet!");
+        }
+        return healthChecker;
     }
 }

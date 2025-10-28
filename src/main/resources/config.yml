@@ -13,8 +13,8 @@ database:
         host: localhost
         port: 3306
         database: golive
-        username: root
-        password: password
+        username: your_username
+        password: your_secure_password # CHANGE THIS!
         ssl: false
         pool-size: 10
 
@@ -196,6 +196,17 @@ announcements:
         enabled: true
         # Time in seconds (default: 12 hours)
         delay: 43200
+
+# Action Bar Settings
+action-bar:
+    # Enable action bar reminder for live players
+    enabled: true
+
+    # Update interval in ticks (20 ticks = 1 second)
+    update-interval: 20
+
+    # Message to display in action bar
+    message: "<gradient:#8b5cf6:#4c1d95>🔴 LIVE</gradient> <gray>|</gray> <#a855f7>Use /offline when done streaming</#a855f7>"
 
 # Stream Link Validation
 stream-validation:

@@ -2,6 +2,7 @@ package dev.trygve.golive.commands;
 
 import dev.trygve.golive.GoLive;
 import dev.trygve.golive.managers.MessageManager;
+import dev.trygve.golive.utils.ColorUtils;
 import dev.trygve.golive.utils.UpdateChecker;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -50,14 +51,13 @@ public class GoLiveCommand implements CommandExecutor, TabCompleter {
         }
         
         if (args.length == 0) {
-            // Show plugin info
-            showPluginInfo(sender);
+            // Show help by default
+            showHelp(sender);
             return true;
         }
         
         switch (args[0].toLowerCase()) {
             case "reload" -> handleReload(sender);
-            case "info" -> showPluginInfo(sender);
             case "update" -> handleUpdateCheck(sender);
             case "help" -> showHelp(sender);
             default -> {
@@ -78,31 +78,13 @@ public class GoLiveCommand implements CommandExecutor, TabCompleter {
         }
         
         if (args.length == 1) {
-            List<String> completions = Arrays.asList("reload", "info", "update", "help");
+            List<String> completions = Arrays.asList("reload", "update", "help");
             return completions.stream()
                 .filter(completion -> completion.toLowerCase().startsWith(args[0].toLowerCase()))
                 .toList();
         }
         
         return new ArrayList<>();
-    }
-    
-    /**
-     * Show plugin information
-     * 
-     * @param sender The command sender
-     */
-    private void showPluginInfo(@NotNull CommandSender sender) {
-        List<String> infoMessages = plugin.getConfig().getStringList("admin.info");
-        
-        for (String message : infoMessages) {
-            message = message.replace("%version%", plugin.getPluginMeta().getVersion());
-            message = message.replace("%database-type%", plugin.getDatabase().getDatabaseType());
-            message = message.replace("%vault-status%", plugin.getVaultHook().isVaultAvailable() ? "Enabled" : "Disabled");
-            message = message.replace("%placeholderapi-status%", plugin.getPlaceholderHook().isPlaceholderApiAvailable() ? "Enabled" : "Disabled");
-            
-            sender.sendMessage(messageManager.getMessageComponent("admin.info", message));
-        }
     }
     
     /**
@@ -122,8 +104,14 @@ public class GoLiveCommand implements CommandExecutor, TabCompleter {
                 // Reload vault hook
                 plugin.getVaultHook().reload();
                 
-                // Reload placeholder hook
-                plugin.getPlaceholderHook().reload();
+                // Reload placeholder hook (must be done synchronously)
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    try {
+                        plugin.getPlaceholderHook().reload();
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to reload PlaceholderAPI hook: " + e.getMessage());
+                    }
+                });
                 
                 // Send success message
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -147,16 +135,45 @@ public class GoLiveCommand implements CommandExecutor, TabCompleter {
      * @param sender The command sender
      */
     private void handleUpdateCheck(@NotNull CommandSender sender) {
+        // Send checking message
+        messageManager.sendMessage((Player) sender, "admin.update-checking");
+        
         CompletableFuture.runAsync(() -> {
-            updateChecker.checkForUpdates().thenAccept(hasUpdate -> {
-                plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    if (hasUpdate) {
-                        updateChecker.notifyAdmins();
-                    } else {
-                        messageManager.sendMessage((Player) sender, "Plugin is up to date!");
-                    }
+            try {
+                updateChecker.checkForUpdates().thenAccept(hasUpdate -> {
+                    plugin.getServer().getScheduler().runTask(plugin, () -> {
+                        try {
+                            if (hasUpdate) {
+                                // Send update available message to the sender
+                                String downloadUrl = updateChecker.getDownloadUrl();
+                                messageManager.sendMessage((Player) sender, "admin.update-available",
+                                    "%current-version%", updateChecker.getCurrentVersion(),
+                                    "%latest-version%", updateChecker.getLatestVersion(),
+                                    "%download-url%", downloadUrl);
+                                
+                                // Also notify other admins
+                                updateChecker.notifyAdmins();
+                            } else {
+                                // Send up-to-date message
+                                messageManager.sendMessage((Player) sender, "admin.update-current",
+                                    "%version%", updateChecker.getCurrentVersion());
+                            }
+                        } catch (Exception e) {
+                            plugin.getLogger().severe("Error handling update check result: " + e.getMessage());
+                            e.printStackTrace();
+                            messageManager.sendMessage((Player) sender, "admin.update-error");
+                        }
+                    });
                 });
-            });
+            } catch (Exception e) {
+                plugin.getLogger().severe("Error during update check: " + e.getMessage());
+                e.printStackTrace();
+                
+                // Send error message on main thread
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    messageManager.sendMessage((Player) sender, "admin.update-error");
+                });
+            }
         });
     }
     
@@ -166,10 +183,19 @@ public class GoLiveCommand implements CommandExecutor, TabCompleter {
      * @param sender The command sender
      */
     private void showHelp(@NotNull CommandSender sender) {
-        List<String> helpMessages = plugin.getConfig().getStringList("help.commands");
+        // Send header with version
+        String header = messageManager.getMessage("help.header");
+        header = header.replace("%version%", plugin.getPluginMeta().getVersion());
+        sender.sendMessage(ColorUtils.toComponent(header));
+        
+        // Send command list
+        List<String> helpMessages = messageManager.getStringList("help.commands");
         
         for (String message : helpMessages) {
-            sender.sendMessage(messageManager.getMessageComponent("help.commands", message));
+            sender.sendMessage(ColorUtils.toComponent(message));
         }
+        
+        // Send footer
+        sender.sendMessage(messageManager.getMessageComponent("help.footer"));
     }
 }

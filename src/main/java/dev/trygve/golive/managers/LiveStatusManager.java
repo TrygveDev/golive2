@@ -24,6 +24,7 @@ public class LiveStatusManager {
     private final DatabaseManager database;
     private final VaultHook vaultHook;
     private final MessageManager messageManager;
+    private final ActionBarManager actionBarManager;
     
     // In-memory cache of live players
     private final Map<UUID, LivePlayerData> livePlayers;
@@ -39,13 +40,16 @@ public class LiveStatusManager {
      * @param database The database manager
      * @param vaultHook The vault hook
      * @param messageManager The message manager
+     * @param actionBarManager The action bar manager
      */
     public LiveStatusManager(@NotNull GoLive plugin, @NotNull DatabaseManager database, 
-                           @NotNull VaultHook vaultHook, @NotNull MessageManager messageManager) {
+                           @NotNull VaultHook vaultHook, @NotNull MessageManager messageManager,
+                           @NotNull ActionBarManager actionBarManager) {
         this.plugin = plugin;
         this.database = database;
         this.vaultHook = vaultHook;
         this.messageManager = messageManager;
+        this.actionBarManager = actionBarManager;
         this.livePlayers = new ConcurrentHashMap<>();
         this.cooldowns = new ConcurrentHashMap<>();
     }
@@ -81,37 +85,54 @@ public class LiveStatusManager {
     }
     
     /**
-     * Load live players from database
+     * Load live players from database synchronously to avoid race conditions
      */
     private void loadLivePlayersFromDatabase() {
-        database.getLivePlayers().thenAccept(uuids -> {
-            for (UUID uuid : uuids) {
-                database.getStreamLink(uuid).thenAccept(streamLink -> {
-                    if (streamLink != null) {
-                        livePlayers.put(uuid, new LivePlayerData(streamLink, System.currentTimeMillis()));
-                    }
-                });
+        try {
+            UUID[] livePlayerUuids = database.getLivePlayers().join();
+            for (UUID uuid : livePlayerUuids) {
+                String streamLink = database.getStreamLink(uuid).join();
+                if (streamLink != null) {
+                    livePlayers.put(uuid, new LivePlayerData(streamLink, System.currentTimeMillis()));
+                }
             }
-        });
+            
+            if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                plugin.getLogger().info("Loaded " + livePlayerUuids.length + " live players from database.");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("Failed to load live players from database: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     /**
      * Load all stream links from database (for players who have set links but are not live)
      */
     private void loadAllStreamLinksFromDatabase() {
-        database.getPlayersWithStreamLinks().thenAccept(uuids -> {
-            for (UUID uuid : uuids) {
+        try {
+            UUID[] playersWithLinks = database.getPlayersWithStreamLinks().join();
+            int loadedCount = 0;
+            
+            for (UUID uuid : playersWithLinks) {
                 // Only load if not already in livePlayers (not currently live)
                 if (!livePlayers.containsKey(uuid)) {
-                    database.getStreamLink(uuid).thenAccept(streamLink -> {
-                        if (streamLink != null) {
-                            // Store stream link for offline players (with 0 timestamp to indicate not live)
-                            livePlayers.put(uuid, new LivePlayerData(streamLink, 0));
-                        }
-                    });
+                    String streamLink = database.getStreamLink(uuid).join();
+                    if (streamLink != null) {
+                        // Store stream link for offline players (with 0 timestamp to indicate not live)
+                        livePlayers.put(uuid, new LivePlayerData(streamLink, 0));
+                        loadedCount++;
+                    }
                 }
             }
-        });
+            
+            if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                plugin.getLogger().info("Loaded " + loadedCount + " offline players with stream links from database.");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("Failed to load stream links from database: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     /**
@@ -153,63 +174,76 @@ public class LiveStatusManager {
     public CompletableFuture<Boolean> setPlayerLiveStatus(@NotNull UUID uuid, boolean isLive, @Nullable String streamLink) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player == null) {
-                    plugin.getLogger().warning("Player with UUID " + uuid + " is not online.");
-                    return false;
-                }
-                
-                // Check cooldown
-                if (isLive && isOnCooldown(uuid)) {
-                    long remainingTime = getCooldownRemainingTime(uuid);
-                    messageManager.sendMessage(player, "general.cooldown-active", "%time%", String.valueOf(remainingTime));
-                    return false;
-                }
-                
-                // Set live status in database
-                database.setLiveStatus(uuid, isLive).thenAccept(success -> {
-                    if (!success) {
-                        plugin.getLogger().warning("Failed to update live status in database for " + player.getName());
-                    }
-                });
-                
-                // Update in-memory cache
-                if (isLive) {
-                    if (streamLink != null) {
-                        livePlayers.put(uuid, new LivePlayerData(streamLink, System.currentTimeMillis()));
-                        // Set cooldown
-                        setCooldown(uuid);
-                    } else {
-                        plugin.getLogger().warning("Cannot set live status without stream link for " + player.getName());
+                // All Bukkit API calls must be on main thread
+                return Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                    try {
+                        Player player = Bukkit.getPlayer(uuid);
+                        if (player == null) {
+                            plugin.getLogger().warning("Player with UUID " + uuid + " is not online.");
+                            return false;
+                        }
+                        
+                        // Check cooldown
+                        if (isLive && isOnCooldown(uuid)) {
+                            long remainingTime = getCooldownRemainingTime(uuid);
+                            messageManager.sendMessage(player, "general.cooldown-active", "%time%", String.valueOf(remainingTime));
+                            return false;
+                        }
+                        
+                        // Update in-memory cache first
+                        if (isLive) {
+                            if (streamLink != null) {
+                                livePlayers.put(uuid, new LivePlayerData(streamLink, System.currentTimeMillis()));
+                                // Set cooldown
+                                setCooldown(uuid);
+                            } else {
+                                plugin.getLogger().warning("Cannot set live status without stream link for " + player.getName());
+                                return false;
+                            }
+                        } else {
+                            // When going offline, keep the stream link but mark as not live (timestamp = 0)
+                            LivePlayerData existingData = livePlayers.get(uuid);
+                            if (existingData != null) {
+                                // Keep the stream link but set timestamp to 0 to indicate not live
+                                livePlayers.put(uuid, new LivePlayerData(existingData.getStreamLink(), 0));
+                            }
+                            removeCooldown(uuid);
+                        }
+                        
+                        // Set live status in database asynchronously
+                        database.setLiveStatus(uuid, isLive).thenAccept(success -> {
+                            if (!success) {
+                                plugin.getLogger().warning("Failed to update live status in database for " + player.getName());
+                            }
+                        });
+                        
+                        // Update permissions asynchronously
+                        vaultHook.setLiveStatus(player, isLive).thenAccept(success -> {
+                            if (!success) {
+                                plugin.getLogger().warning("Failed to update permissions for " + player.getName());
+                            }
+                        });
+                        
+                        // Send messages and effects
+                        if (isLive) {
+                            sendLiveAnnouncement(player, streamLink);
+                            // Start action bar for live player
+                            actionBarManager.startActionBar(player);
+                        } else {
+                            sendOfflineAnnouncement(player);
+                            // Stop action bar for offline player
+                            actionBarManager.stopActionBar(uuid);
+                        }
+                        
+                        return true;
+                    } catch (Exception e) {
+                        plugin.getLogger().severe("Error setting live status: " + e.getMessage());
+                        e.printStackTrace();
                         return false;
                     }
-                } else {
-                    // When going offline, keep the stream link but mark as not live (timestamp = 0)
-                    LivePlayerData existingData = livePlayers.get(uuid);
-                    if (existingData != null) {
-                        // Keep the stream link but set timestamp to 0 to indicate not live
-                        livePlayers.put(uuid, new LivePlayerData(existingData.getStreamLink(), 0));
-                    }
-                    removeCooldown(uuid);
-                }
-                
-                // Update permissions
-                vaultHook.setLiveStatus(player, isLive).thenAccept(success -> {
-                    if (!success) {
-                        plugin.getLogger().warning("Failed to update permissions for " + player.getName());
-                    }
-                });
-                
-                // Send messages and effects
-                if (isLive) {
-                    sendLiveAnnouncement(player, streamLink);
-                } else {
-                    sendOfflineAnnouncement(player);
-                }
-                
-                return true;
+                }).get();
             } catch (Exception e) {
-                plugin.getLogger().severe("Error setting live status: " + e.getMessage());
+                plugin.getLogger().severe("Error in setPlayerLiveStatus: " + e.getMessage());
                 e.printStackTrace();
                 return false;
             }
@@ -429,8 +463,44 @@ public class LiveStatusManager {
             autoRemovalTask.cancel();
         }
         
+        // Stop all action bars
+        actionBarManager.shutdown();
+        
         // Save live players
         saveLivePlayers();
+        
+        // Clean up stale data
+        cleanupStaleData();
+        
+        if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+            plugin.getLogger().info("LiveStatusManager shutdown complete");
+        }
+    }
+    
+    /**
+     * Clean up stale data (offline players, expired cooldowns)
+     */
+    private void cleanupStaleData() {
+        try {
+            // Clean up cooldowns for offline players
+            cooldowns.entrySet().removeIf(entry -> {
+                UUID uuid = entry.getKey();
+                return Bukkit.getPlayer(uuid) == null || System.currentTimeMillis() > entry.getValue();
+            });
+            
+            // Clean up live player data for offline players
+            livePlayers.entrySet().removeIf(entry -> {
+                UUID uuid = entry.getKey();
+                Player player = Bukkit.getPlayer(uuid);
+                return player == null || !player.isOnline();
+            });
+            
+            if (plugin.getConfig().getBoolean("debug.enabled", false)) {
+                plugin.getLogger().info("Cleaned up stale data: " + livePlayers.size() + " live players, " + cooldowns.size() + " cooldowns");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error during cleanup: " + e.getMessage());
+        }
     }
     
     /**
@@ -455,3 +525,4 @@ public class LiveStatusManager {
         }
     }
 }
+

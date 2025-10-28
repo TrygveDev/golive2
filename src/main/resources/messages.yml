@@ -1,4 +1,4 @@
-# GoLive v2.0 Messages
+# GoLive Messages
 # All player-facing messages with MiniMessage support
 
 # Plugin prefix
@@ -15,7 +15,7 @@ general:
 # Live Status Messages
 live:
     # Message when going live
-    announcement: "<gradient:#8b5cf6:#4c1d95>%player%</gradient> <#8b5cf6>is now live at</#8b5cf6> <click:open_url:'%streamlink%'><hover:show_text:'<#8b5cf6>Click to open stream!</#8b5cf6>'><underlined>%streamlink%</underlined></hover></click><#8b5cf6>☜!</#8b5cf6>"
+    announcement: "<gradient:#8b5cf6:#4c1d95>%player%</gradient> <#8b5cf6>is now live at</#8b5cf6> <click:open_url:'%streamlink%'><hover:show_text:'<#8b5cf6>Click to open stream!</#8b5cf6>'><underlined>%streamlink%</underlined></hover></click><#8b5cf6>!</#8b5cf6>"
 
     # Hover text for clickable messages
     hover-text: "<#8b5cf6>Click to open the stream!</#8b5cf6>"
@@ -28,6 +28,9 @@ live:
 
     # Subtitle text
     subtitle: "<gray>%streamlink%</gray>"
+
+    # Action bar message
+    action-bar: "<gradient:#8b5cf6:#4c1d95>🔴 LIVE</gradient> <gray>|</gray> <#a855f7>Use /offline when done streaming</#a855f7>"
 
 # Offline Messages
 offline:
@@ -83,9 +86,9 @@ gui:
 
 # Command Help Messages
 help:
-    header: "<gradient:#8b5cf6:#4c1d95>GoLive v2.0</gradient> <gray>Commands</gray>"
+    header: "<gradient:#8b5cf6:#4c1d95>GoLive v%version%</gradient> <gray>Commands</gray>"
     commands:
-        - "<#a855f7>/golive</#a855f7> <gray>- Show plugin information</gray>"
+        - "<#a855f7>/golive</#a855f7> <gray>- Show help and available commands</gray>"
         - "<#a855f7>/golive reload</#a855f7> <gray>- Reload configuration</gray>"
         - "<#a855f7>/live</#a855f7> <gray>- Go live (opens GUI if enabled)</gray>"
         - "<#a855f7>/live setlink <link></#a855f7> <gray>- Set your stream link</gray>"
@@ -97,7 +100,7 @@ help:
 admin:
     # Plugin information
     info:
-        - "<gradient:#8b5cf6:#4c1d95>GoLive v2.0</gradient>"
+        - "<gradient:#8b5cf6:#4c1d95>GoLive v%version%</gradient>"
         - "<gray>Author:</gray> <#a855f7>Trygve</#a855f7>"
         - "<gray>Version:</gray> <#a855f7>%version%</#a855f7>"
         - "<gray>Minecraft:</gray> <#a855f7>1.21+</#a855f7>"
@@ -106,8 +109,11 @@ admin:
         - "<gray>Vault:</gray> <#a855f7>%vault-status%</#a855f7>"
         - "<gray>PlaceholderAPI:</gray> <#a855f7>%placeholderapi-status%</#a855f7>"
 
-    # Update notification
+    # Update notifications
     update-available: "<red>GoLive update available!</red> <gray>Current:</gray> <#a855f7>%current-version%</#a855f7> <gray>Latest:</gray> <#a855f7>%latest-version%</#a855f7> <gray>Download:</gray> <click:open_url:'%download-url%'><hover:show_text:'<#8b5cf6>Click to download!</#8b5cf6>'><underlined><#a855f7>%download-url%</#a855f7></underlined></hover></click>"
+    update-current: "<#8b5cf6>Plugin is up to date!</#8b5cf6> <gray>Version:</gray> <#a855f7>%version%</#a855f7>"
+    update-checking: "<#a855f7>Checking for updates...</#a855f7>"
+    update-error: "<red>Failed to check for updates. Please try again later.</red>"
 
 # Error Messages
 errors:

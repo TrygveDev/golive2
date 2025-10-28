@@ -4,6 +4,7 @@ import dev.trygve.golive.GoLive;
 import dev.trygve.golive.managers.LiveStatusManager;
 import dev.trygve.golive.managers.MessageManager;
 import dev.trygve.golive.gui.GuiManager;
+import dev.trygve.golive.utils.ColorUtils;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -122,7 +123,7 @@ public class OfflineCommand implements CommandExecutor, TabCompleter {
         List<String> helpMessages = plugin.getConfig().getStringList("help.commands");
         
         for (String message : helpMessages) {
-            player.sendMessage(messageManager.getMessageComponent("help.commands", message));
+            player.sendMessage(ColorUtils.toComponent(message));
         }
     }
 }
